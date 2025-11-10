@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Seller Login — FarmToHome</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main class="container py-5">
+    <div class="row justify-content-center">
+      <div class="col-md-5">
+        <div class="card p-4">
+          <h4>Seller Sign In</h4>
+          <p class="text-muted">Use your seller credentials to add products.</p>
+          <form id="sellerLogin">
+            <div class="mb-3"><label class="form-label">Seller ID</label><input id="sid" class="form-control" required></div>
+            <div class="mb-3"><label class="form-label">Password</label><input id="spwd" type="password" class="form-control" required></div>
+            <div class="d-grid gap-2"><button class="btn btn-success">Sign in</button><a href="/" class="btn btn-light">Back</a></div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    document.getElementById('sellerLogin').addEventListener('submit', (e)=>{
+      e.preventDefault();
+      const sid = document.getElementById('sid').value.trim();
+      const spwd = document.getElementById('spwd').value.trim();
+      if(sid === 'FTH' && spwd === 'FTH12345'){
+        localStorage.setItem('fth_seller', '1');
+        alert('Seller login successful');
+        location.href = '/list-product.html';
+      } else {
+        alert('Invalid seller credentials');
+      }
+    });
+  </script>
+</body>
+</html>

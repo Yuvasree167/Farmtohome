@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>List Product — FarmToHome</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main class="container py-5">
+    <div class="row">
+      <div class="col-md-6">
+        <h4>List a New Product</h4>
+        <div class="card p-3">
+          <form id="listForm">
+            <input type="hidden" id="productId">
+            <div class="mb-3"><label class="form-label">Product Name</label><input id="name" class="form-control" required></div>
+            <div class="mb-3"><label class="form-label">Price (₹)</label><input id="price" type="number" class="form-control" required></div>
+            <div class="mb-3"><label class="form-label">Description</label><textarea id="description" class="form-control" rows="3"></textarea></div>
+            <div class="mb-3">
+              <label class="form-label">Image (upload)</label>
+              <input id="imageFile" type="file" class="form-control" accept="image/*">
+              <div id="imagePreview" class="mt-2"></div>
+            </div>
+            <div class="d-grid gap-2">
+              <button id="submitBtn" class="btn btn-success">Create Product</button>
+              <button id="cancelEdit" type="button" class="btn btn-outline-secondary" style="display:none">Cancel Edit</button>
+              <a href="/seller-login.html" class="btn btn-light">Seller logout</a>
+            </div>
+          </form>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <h4>Existing Products (preview)</h4>
+        <div id="previewList"></div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // require seller login
+    if(!localStorage.getItem('fth_seller')){ location.href = '/seller-login.html'; }
+
+    async function loadPreview(){
+      const res = await fetch('/api/products');
+      const products = await res.json();
+      const p = document.getElementById('previewList'); p.innerHTML = '';
+      products.slice().reverse().forEach(prod=>{
+        const div = document.createElement('div'); div.className='d-flex gap-3 align-items-center mb-3 justify-content-between';
+        div.innerHTML = `
+          <div class="d-flex gap-3 align-items-center">
+            <img src="${prod.image||'/assets/placeholder.png'}" style="width:64px;height:64px;object-fit:cover;border-radius:8px">
+            <div>
+              <div class="fw-bold">${prod.name}</div>
+              <div class="text-muted small">₹${Number(prod.price).toFixed(2)}</div>
+            </div>
+          </div>
+          <div>
+            <button class="btn btn-sm btn-outline-primary me-2 edit-prod" data-id="${prod._id}">Edit</button>
+            <button class="btn btn-sm btn-outline-danger delete-prod" data-id="${prod._id}">Delete</button>
+          </div>
+        `;
+        p.appendChild(div);
+      });
+    }
+
+    document.getElementById('listForm').addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      const id = document.getElementById('productId').value || null;
+      const name = document.getElementById('name').value.trim();
+      const price = Number(document.getElementById('price').value);
+      const description = document.getElementById('description').value.trim();
+      const fileInput = document.getElementById('imageFile');
+      if(!name || !price) return alert('Name and price required');
+
+      try{
+        const fd = new FormData();
+        fd.append('name', name);
+        fd.append('price', price);
+        fd.append('description', description);
+        if(fileInput.files && fileInput.files[0]) fd.append('image', fileInput.files[0]);
+
+        const headers = { 'X-Seller-Id':'FTH', 'X-Seller-Secret':'FTH12345' };
+        let res;
+        if(id){
+          res = await fetch(`/api/products/${id}`, { method: 'PUT', headers, body: fd });
+        } else {
+          res = await fetch('/api/products', { method: 'POST', headers, body: fd });
+        }
+        const j = await res.json();
+        if(!res.ok) return alert(j.message || 'Failed to save product');
+        alert(id ? 'Product updated' : 'Product created');
+        document.getElementById('listForm').reset();
+        document.getElementById('productId').value = '';
+        document.getElementById('submitBtn').textContent = 'Create Product';
+        document.getElementById('cancelEdit').style.display = 'none';
+        document.getElementById('imagePreview').innerHTML = '';
+        loadPreview();
+      }catch(err){ console.error(err); alert('Network error'); }
+    });
+
+    // edit / delete handlers (delegated)
+    document.getElementById('previewList').addEventListener('click', async (e)=>{
+      const editBtn = e.target.closest('.edit-prod');
+      const delBtn = e.target.closest('.delete-prod');
+      if(editBtn){
+        const id = editBtn.dataset.id;
+        const res = await fetch(`/api/products`);
+        const products = await res.json();
+        const p = products.find(x=>x._id === id);
+        if(!p) return alert('Product not found');
+        document.getElementById('productId').value = p._id;
+        document.getElementById('name').value = p.name;
+        document.getElementById('price').value = p.price;
+        document.getElementById('description').value = p.description || '';
+        document.getElementById('submitBtn').textContent = 'Update Product';
+        document.getElementById('cancelEdit').style.display = 'inline-block';
+        // preview image
+        document.getElementById('imagePreview').innerHTML = `<img src="${p.image||'/assets/placeholder.png'}" style="max-width:160px;border-radius:8px">`;
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else if(delBtn){
+        if(!confirm('Delete this product?')) return;
+        const id = delBtn.dataset.id;
+        try{
+          const res = await fetch(`/api/products/${id}`, { method: 'DELETE', headers: { 'X-Seller-Id':'FTH', 'X-Seller-Secret':'FTH12345' } });
+          const j = await res.json();
+          if(!res.ok) return alert(j.message || 'Failed to delete');
+          alert('Deleted'); loadPreview();
+        }catch(err){ console.error(err); alert('Network error'); }
+      }
+    });
+
+    document.getElementById('cancelEdit').addEventListener('click', ()=>{
+      document.getElementById('listForm').reset();
+      document.getElementById('productId').value = '';
+      document.getElementById('submitBtn').textContent = 'Create Product';
+      document.getElementById('cancelEdit').style.display = 'none';
+      document.getElementById('imagePreview').innerHTML = '';
+    });
+
+    // image preview when selecting a file
+    document.getElementById('imageFile').addEventListener('change', (e)=>{
+      const f = e.target.files[0];
+      if(!f) return document.getElementById('imagePreview').innerHTML = '';
+      const url = URL.createObjectURL(f);
+      document.getElementById('imagePreview').innerHTML = `<img src="${url}" style="max-width:160px;border-radius:8px">`;
+    });
+
+    loadPreview();
+  </script>
+</body>
+</html>
